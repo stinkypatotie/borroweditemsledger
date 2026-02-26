@@ -20,14 +20,19 @@
   //  ⚙️  PASTE YOUR FIREBASE CONFIG HERE
   // ============================================================
   const firebaseConfig = {
-    apiKey: "AIzaSyCq6gqjNwKijOLZyhkVt7JkfeJ3Rt8oUUI",
-    authDomain: "borrow--ledger.firebaseapp.com",
-    databaseURL: "https://borrow--ledger-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "borrow--ledger",
-    storageBucket: "borrow--ledger.firebasestorage.app",
-    messagingSenderId: "184622919000",
-    appId: "1:184622919000:web:248e0a690c6e81c932892d"
+    apiKey:            "YOUR_API_KEY",
+    authDomain:        "YOUR_PROJECT_ID.firebaseapp.com",
+    databaseURL:       "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+    projectId:         "YOUR_PROJECT_ID",
+    storageBucket:     "YOUR_PROJECT_ID.appspot.com",
+    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+    appId:             "YOUR_APP_ID"
   };
+
+  // ============================================================
+  //  ⚙️  TELEGRAM BOT TOKEN  (from @BotFather)
+  // ============================================================
+  const TELEGRAM_BOT_TOKEN = "YOUR_BOT_TOKEN";
 
   // ─── Init ───
   const app  = initializeApp(firebaseConfig);
@@ -59,41 +64,7 @@
   window._isDeviceAuthorized = isDeviceAuthorized;
   window._signInFn = signInWithEmailAndPassword;
   window._signOutFn = signOut; window._onAuthChanged = onAuthStateChanged;
-  window._TELEGRAM_BOT_TOKEN = "";
-
-  // ─── Load bot token from Firebase ───
-  window._loadBotToken = async () => {
-    try {
-      const snap = await get(ref(db, "config/telegram_bot_token"));
-      if (snap.exists()) window._TELEGRAM_BOT_TOKEN = snap.val();
-    } catch(e) { console.warn("Could not load bot token:", e.message); }
-  };
-  window._saveBotToken = async (token) => {
-    await set(ref(db, "config/telegram_bot_token"), token);
-    window._TELEGRAM_BOT_TOKEN = token;
-  };
-
-  // ─── Load user role from Firebase ───
-  window._userRole = "user";
-  window._loadUserRole = async (uid) => {
-    try {
-      const path = "users/" + uid + "/role";
-      console.log("[ROLE] Looking up Firebase path:", path);
-      const snap = await get(ref(db, path));
-      console.log("[ROLE] snap.exists():", snap.exists(), "| value:", snap.val());
-      if (snap.exists() && snap.val() === "admin") {
-        window._userRole = "admin";
-      } else {
-        window._userRole = "user";
-        // Store the UID so the user can check they entered it correctly in Firebase
-        window._currentUid = uid;
-      }
-    } catch(e) {
-      console.error("[ROLE] Error fetching role:", e);
-      window._userRole = "user";
-    }
-  };
-  window._isAdmin = () => window._userRole === "admin";
+  window._TELEGRAM_BOT_TOKEN = TELEGRAM_BOT_TOKEN;
 
   onAuthStateChanged(auth, async (user) => {
     if (user) {
@@ -259,14 +230,20 @@ textarea{min-height:80px;resize:vertical;}select option{background:var(--panel);
     <div class="logo">◈ BORROW LEDGER <span>REALTIME DATABASE</span></div>
     <div class="topbar-right">
       <span class="live-dot" title="Live sync active"></span>
-      <div class="device-badge" onclick="showAccountInfo()" title="Click for account info" style="cursor:pointer">DEV: <span id="topbar-device-id"></span></div>
-      <div class="user-badge">● <span id="topbar-user"></span> <span id="topbar-role-badge" style="font-size:9px;padding:2px 6px;border-radius:1px;background:rgba(240,192,64,.15);color:var(--accent);border:1px solid rgba(240,192,64,.3);letter-spacing:.12em;margin-left:4px"></span></div>
+      <div class="device-badge">DEV: <span id="topbar-device-id"></span></div>
+      <div class="user-badge">● <span id="topbar-user"></span></div>
       <button class="btn-logout" onclick="doLogout()">SIGN OUT</button>
     </div>
   </header>
   <main>
     <nav class="sidebar">
-      <div id="sidebar-nav"></div>
+      <div class="nav-section">Menu</div>
+      <div class="nav-item active" onclick="showPage('ledger')" id="nav-ledger"><span>📋</span> Ledger</div>
+      <div class="nav-item" onclick="showPage('new')" id="nav-new"><span>＋</span> New Entry</div>
+      <div class="nav-section">Config</div>
+      <div class="nav-item" onclick="showPage('contacts')" id="nav-contacts"><span>👥</span> TG Contacts</div>
+      <div class="nav-item" onclick="showPage('devices')" id="nav-devices"><span>🔒</span> Devices</div>
+      <div class="nav-item" onclick="showPage('settings')" id="nav-settings"><span>⚙️</span> Settings</div>
     </nav>
     <div class="content" id="content-area"></div>
   </main>
@@ -323,24 +300,6 @@ let tgEntryData     = null;
 let _liveOff        = null; // unsubscribe onValue
 
 // ════════════════════════════════════════════════════════════
-//  SIDEBAR — role-aware
-// ════════════════════════════════════════════════════════════
-function buildSidebar() {
-  const admin = window._isAdmin();
-  const nav = document.getElementById('sidebar-nav');
-  nav.innerHTML = `
-    <div class="nav-section">Menu</div>
-    <div class="nav-item active" onclick="showPage('ledger')" id="nav-ledger"><span>📋</span> Ledger</div>
-    <div class="nav-item" onclick="showPage('new')" id="nav-new"><span>＋</span> New Entry</div>
-    ${admin ? `
-    <div class="nav-section">Config</div>
-    <div class="nav-item" onclick="showPage('contacts')" id="nav-contacts"><span>👥</span> TG Contacts</div>
-    <div class="nav-item" onclick="showPage('devices')" id="nav-devices"><span>🔒</span> Devices</div>
-    <div class="nav-item" onclick="showPage('settings')" id="nav-settings"><span>⚙️</span> Settings</div>` : ''}
-  `;
-}
-
-// ════════════════════════════════════════════════════════════
 //  BOOT
 // ════════════════════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', () => {
@@ -364,19 +323,10 @@ window._showDeviceError = () => {
 
 window._onLogin = async (user) => {
   currentUser = user;
-  await window._loadUserRole(user.uid);
-  if (window._isAdmin()) await window._loadBotToken();
-  // Debug: show UID if not admin so user can verify Firebase setup
-  if (!window._isAdmin()) {
-    console.warn("[ROLE] Logged in as basic USER. UID:", user.uid);
-    console.warn("[ROLE] Make sure Firebase has: users/" + user.uid + "/role = \"admin\"");
-  }
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'flex';
   document.getElementById('topbar-user').textContent = user.email;
-  document.getElementById('topbar-role-badge').textContent = window._isAdmin() ? 'ADMIN' : 'USER';
   document.getElementById('topbar-device-id').textContent = window._deviceId;
-  buildSidebar();
   await loadContacts();
   showPage('ledger');
 };
@@ -416,8 +366,6 @@ async function doLogout() { await window._signOutFn(window._auth); toast('Signed
 //  NAVIGATION
 // ════════════════════════════════════════════════════════════
 function showPage(page) {
-  const adminOnly = ['contacts','devices','settings'];
-  if (adminOnly.includes(page) && !window._isAdmin()) { toast('Access restricted.','warn'); return; }
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
   document.getElementById('nav-'+page)?.classList.add('active');
   const c = document.getElementById('content-area');
@@ -487,16 +435,15 @@ function renderTable(entries) {
       <td>${esc(e.courier||'—')}</td>
       <td>${statusBadge(e.status)}</td>
       <td onclick="event.stopPropagation()" style="display:flex;gap:6px;padding:8px 14px">
-        ${window._isAdmin() ? `
         <button class="btn btn-secondary btn-sm" onclick="openEdit('${e.id}')">EDIT</button>
         <button class="btn btn-tg btn-sm" onclick="openTelegram('${e.id}')">📨</button>
-        <button class="btn btn-danger" onclick="openDelete('${e.id}')">✕</button>` : ''}
+        <button class="btn btn-danger" onclick="openDelete('${e.id}')">✕</button>
       </td>
     </tr>
     <tr class="detail-row" id="detail-${e.id}" style="display:none">
       <td colspan="8">
         <div class="detail-inner">
-          <div class="detail-field"><div class="detail-field-label">Full Items</div><div class="detail-field-value">${esc(e.items)}</div></div>
+          <div class="detail-field" style="min-width:100%;flex-basis:100%"><div class="detail-field-label">Full Items</div><div class="detail-field-value" style="line-height:2">${formatItems(e.items)}</div></div>
           <div class="detail-field"><div class="detail-field-label">Date Borrowed</div><div class="detail-field-value td-mono">${formatDate(e.date_borrowed)}</div></div>
           <div class="detail-field"><div class="detail-field-label">Due Date</div><div class="detail-field-value td-mono">${formatDate(e.date_due)||'—'}</div></div>
           <div class="detail-field"><div class="detail-field-label">Payment</div><div class="detail-field-value">${payBadge(e.payment_mode)}</div></div>
@@ -924,26 +871,9 @@ function settings(el) {
     <div class="settings-section">
       <div class="settings-section-header">📨 Telegram Bot</div>
       <div class="settings-body">
-        <div class="settings-row"><div><div class="settings-row-label">Bot Token</div><div class="settings-row-sub">Stored securely in Firebase — not hardcoded in your HTML</div></div>
-          <span class="badge ${window._TELEGRAM_BOT_TOKEN?'badge-returned':'badge-out'}">${window._TELEGRAM_BOT_TOKEN?'CONFIGURED':'NOT SET'}</span></div>
-        <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:10px">
-          <div class="settings-row-label">Update Bot Token</div>
-          <div style="display:flex;gap:10px;width:100%">
-            <input type="password" id="tg-token-input" placeholder="Paste new bot token from @BotFather"
-              value="${window._TELEGRAM_BOT_TOKEN||''}" style="flex:1;font-size:12px">
-            <button class="btn btn-primary btn-sm" onclick="saveBotTokenFromSettings()">SAVE TOKEN</button>
-          </div>
-        </div>
+        <div class="settings-row"><div><div class="settings-row-label">Bot Token</div><div class="settings-row-sub">Set at top of index.html in &lt;script type="module"&gt;</div></div>
+          <span class="badge ${window._TELEGRAM_BOT_TOKEN!=='YOUR_BOT_TOKEN'?'badge-returned':'badge-out'}">${window._TELEGRAM_BOT_TOKEN!=='YOUR_BOT_TOKEN'?'CONFIGURED':'NOT SET'}</span></div>
         <div class="settings-row"><div><div class="settings-row-label">Saved Contacts</div></div><span style="font-family:var(--font-head);font-size:22px;color:var(--accent)">${tgContacts.length}</span></div>
-      </div>
-    </div>
-    <div class="settings-section">
-      <div class="settings-section-header">👥 User Roles</div>
-      <div class="settings-body">
-        <div class="settings-row"><div><div class="settings-row-label">How Roles Work</div><div class="settings-row-sub">Roles are stored in Firebase at <code style="color:var(--accent)">users/&lt;uid&gt;/role</code>. Set to <code style="color:var(--accent)">"admin"</code> for full access, or leave unset/any other value for basic user access.</div></div></div>
-        <div class="settings-row"><div><div class="settings-row-label">Your Role</div></div><span class="badge badge-returned">ADMIN</span></div>
-        <div class="settings-row"><div><div class="settings-row-label">Basic User Access</div><div class="settings-row-sub">Can view the Ledger and add New Entries only. Cannot edit, delete, send Telegram messages, or access Config pages.</div></div></div>
-        <div class="settings-row"><div><div class="settings-row-label">Admin Access</div><div class="settings-row-sub">Full access: Ledger (edit/delete/Telegram), New Entry, TG Contacts, Devices, Settings.</div></div></div>
       </div>
     </div>
     <div class="settings-section">
@@ -953,51 +883,10 @@ function settings(el) {
         <div>2. Enable <b>Email/Password</b> auth → Firebase Console → Authentication → Sign-in method.</div>
         <div>3. Create a <b>Realtime Database</b> in production mode and deploy <code style="color:var(--accent)">database.rules.json</code>.</div>
         <div>4. Manually add your device: Firebase Console → Realtime Database → <code style="color:var(--accent)">authorized_devices / &lt;YOUR_DEVICE_ID&gt;</code> → set <code style="color:var(--accent)">{active: true, label: "My PC"}</code>.</div>
-        <div>5. Create Telegram bot via <b>@BotFather</b>, paste the token in <b>Settings → Telegram Bot → Update Bot Token</b>. It's saved to Firebase — never in your HTML.</div>
+        <div>5. Create Telegram bot via <b>@BotFather</b>, set token above.</div>
         <div>6. Add contacts in <b>TG Contacts</b>. Get chat IDs from <b>@userinfobot</b>.</div>
       </div>
     </div>`;
-}
-
-async function saveBotTokenFromSettings() {
-  const token = document.getElementById('tg-token-input')?.value?.trim();
-  if (!token) { toast('Token cannot be empty.','warn'); return; }
-  try {
-    await window._saveBotToken(token);
-    toast('Bot token saved to Firebase.','success');
-    showPage('settings');
-  } catch(e) { toast('Error saving token: '+e.message,'error'); }
-}
-
-function showAccountInfo() {
-  const uid = currentUser?.uid || 'unknown';
-  const role = window._userRole || 'user';
-  const msg = `UID: ${uid}\n\nRole: ${role.toUpperCase()}\n\nTo grant admin access, set this in Firebase:\nusers/${uid}/role = "admin"`;
-  // Use a toast-style overlay instead of alert
-  const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:600;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
-  overlay.innerHTML = `
-    <div style="background:var(--panel);border:1px solid var(--border2);padding:28px;max-width:480px;width:90%;position:relative">
-      <div style="font-family:var(--font-head);font-size:16px;font-weight:800;margin-bottom:20px;color:var(--accent)">⚙ ACCOUNT INFO</div>
-      <div style="margin-bottom:12px">
-        <div style="font-size:9px;color:var(--muted);letter-spacing:.15em;text-transform:uppercase;margin-bottom:4px">Your Firebase UID</div>
-        <div style="font-family:var(--font-mono);font-size:12px;color:var(--text);background:var(--bg);padding:10px 12px;border:1px solid var(--border);word-break:break-all">${uid}</div>
-      </div>
-      <div style="margin-bottom:20px">
-        <div style="font-size:9px;color:var(--muted);letter-spacing:.15em;text-transform:uppercase;margin-bottom:4px">Current Role</div>
-        <div style="font-family:var(--font-mono);font-size:12px;color:${role==='admin'?'var(--accent2)':'var(--accent)'};background:var(--bg);padding:10px 12px;border:1px solid var(--border)">${role.toUpperCase()}</div>
-      </div>
-      ${role !== 'admin' ? `<div style="font-size:11px;color:var(--muted);background:rgba(240,192,64,.05);border:1px solid rgba(240,192,64,.2);padding:12px;margin-bottom:16px;line-height:1.8">
-        To grant admin access, go to Firebase Console → Realtime Database and set:<br>
-        <code style="color:var(--accent)">users / ${uid} / role</code> → <code style="color:var(--accent2)">"admin"</code>
-      </div>` : ''}
-      <div style="display:flex;gap:10px">
-        <button class="btn btn-secondary" onclick="navigator.clipboard?.writeText('${uid}').then(()=>toast('UID copied!','success'))" style="flex:1">COPY UID</button>
-        <button class="btn btn-primary" onclick="this.closest('div[style*=fixed]').remove()" style="flex:1">CLOSE</button>
-      </div>
-    </div>`;
-  overlay.addEventListener('click', e => { if(e.target===overlay) overlay.remove(); });
-  document.body.appendChild(overlay);
 }
 
 // ════════════════════════════════════════════════════════════
@@ -1025,6 +914,18 @@ function formatDate(d) {
     const dt = new Date(d+(d.includes('T')?'':'T00:00:00'));
     return dt.toLocaleDateString('en-PH',{year:'numeric',month:'short',day:'numeric'});
   } catch { return d; }
+}
+
+function formatItems(raw) {
+  if (!raw) return '—';
+  const lines = raw.split(/\n|,/).map(s => s.trim()).filter(Boolean);
+  if (lines.length <= 1) return esc(raw);
+  return lines.map(l =>
+    `<div style="display:flex;align-items:baseline;gap:8px">
+       <span style="color:var(--accent);font-size:10px;flex-shrink:0">▸</span>
+       <span>${esc(l)}</span>
+     </div>`
+  ).join('');
 }
 
 function payBadge(m) {
