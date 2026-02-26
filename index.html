@@ -350,13 +350,24 @@ async function doLogin() {
   try {
     await window._signInFn(window._auth, email, pass);
   } catch(e) {
-    errEl.textContent = '⚠ ' + ({
-      'auth/invalid-email':'Invalid email.',
-      'auth/user-not-found':'No account found.',
-      'auth/wrong-password':'Incorrect password.',
-      'auth/too-many-requests':'Too many attempts. Try later.',
-      'auth/invalid-credential':'Invalid credentials.',
-    }[e.code]||'Authentication failed.');
+    const msg = {
+      'auth/invalid-email':            'Invalid email address.',
+      'auth/user-not-found':           'No account found with this email.',
+      'auth/wrong-password':           'Incorrect password.',
+      'auth/invalid-credential':       'Incorrect email or password.',
+      'auth/user-disabled':            'This account has been disabled.',
+      'auth/too-many-requests':        'Too many attempts. Try again later.',
+      'auth/network-request-failed':   'Network error. Check your connection.',
+      'auth/invalid-api-key':          'Invalid Firebase API key — check your config.',
+      'auth/app-not-authorized':       'App not authorized — check Firebase console.',
+      'auth/operation-not-allowed':    'Email/password sign-in is not enabled in Firebase Console.',
+      'auth/configuration-not-found':  'Firebase project not configured. Check your config values.',
+      'auth/missing-email':            'Please enter your email.',
+      'auth/missing-password':         'Please enter your password.',
+      'auth/project-not-found':        'Firebase project not found — check your projectId.',
+    }[e.code];
+    errEl.textContent = '⚠ ' + (msg || `Authentication failed (${e.code})`);
+    console.error('Auth error:', e.code, e.message);
     btn.textContent = 'ACCESS SYSTEM';
   }
 }
